@@ -1,22 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-const currentWordIndex = ref(0)
-const currentLetterIndex = ref(0)
+import { Ref, ref, toValue } from 'vue';
+const wordIndex = ref(0)
+const letterIndex = ref(0)
 
 type Status = 'corrent' | 'wrong' | 'extra' | null
 type Letter = { letter: string, status: Status}
-type Text = {
+type Word = {
   letters: Letter[],
   error: boolean
-}[]
+}
 const words = ref<HTMLDivElement[]>([])
 const x = ref(0)
 const y = ref(0)
-const getY = () => {
-  const y = words.value[currentWordIndex.value]?.offsetTop
-  return y
-}
-const text = ref<Text>([
+const text = ref<Word[]>([
     {
       letters: [
         {letter: 'H', status: null},
@@ -69,77 +65,97 @@ const text = ref<Text>([
 ]);
 function pressLetter(event: KeyboardEvent){
   const key = event.key
-  const letterIndex = currentLetterIndex.value
-  const wordIndex = currentWordIndex.value
-  const currentWord = text.value[wordIndex].letters
-  const currentLetter = text.value[wordIndex].letters[letterIndex]
+  const letters = getWordFromText(text, wordIndex).letters
+  const currentLetter = getLetter(letters, letterIndex)
   if(isLetter(key)){
-    if(letterIndex > currentWord.length - 1){
-      text.value[wordIndex].letters.push({letter: key, status: 'extra'})
+    if(toValue(letterIndex) > letters.length - 1){
+      const letters = getWordFromText(text, wordIndex).letters
+      letters.push({letter: key, status: 'extra'})
     }
-    
     else if(key == currentLetter.letter){
       currentLetter.status = 'corrent'
     }
     else {
       currentLetter.status = 'wrong'
     }
-    x.value += getLetterWidth(words.value[wordIndex]?.children[0])
-    currentLetterIndex.value++ 
+    x.value += getElementWidth(toValue(words)[toValue(wordIndex)]?.children[0])
+    letterIndex.value++ 
   }
   if(isBackSpace(event)){
-    if(letterIndex){
-      if(currentWord[letterIndex - 1].status == 'extra'){
-        text.value[wordIndex].letters.pop()
+    if(toValue(letterIndex)){
+      const prevLetter = getPrevLetter(letters, letterIndex)
+      if(prevLetter.status == 'extra'){
+        const word = getWordFromText(text, wordIndex)
+        word.letters.pop()
       }
       else {
-        currentWord[letterIndex - 1].status = null
+        prevLetter.status = null
       }
-      x.value -= words.value[wordIndex]?.children[0].clientWidth!
-      currentLetterIndex.value--
+      const letterElement = getWordElementFromText(words, wordIndex).children[0]!
+      const wordElementWidth = getElementWidth(letterElement)
+      x.value -= wordElementWidth
+      letterIndex.value--
     }
-    else if(!letterIndex && wordIndex){
-      currentWordIndex.value--
-      const test = takeLastTypedLetter(text.value[wordIndex-1].letters)
-      currentLetterIndex.value = test + 1
-      if(text.value[wordIndex-1].error) text.value[wordIndex-1].error = false
-      //to separate function
-      const element = words.value[wordIndex-1].children
-      const children  = Array.from(element)
-      for(let letterIndex = children.length; letterIndex > 0; letterIndex--){
-        const letter = children[letterIndex] as HTMLElement
-        if(letter && !letter?.className.includes('notEntered')){
-          const wordOffset = words.value[wordIndex-1].offsetLeft
-          x.value = wordOffset + letter.offsetLeft + letter.offsetWidth
-          break
-        }
-      }
+    else if(toValue(wordIndex)){
+      wordIndex.value--
+      const word = getWordFromText(text, wordIndex)
+      resetCurrentWordError(word)
+      const letters = word.letters
+      const lastTypedLetterIndex = takeLastTypedLetterIndex(letters)
+      letterIndex.value = lastTypedLetterIndex + 1
+      const wordElement = getWordElementFromText(words, wordIndex)
+      const letterElements = Array.from(wordElement.children)
+      const lastTypedLetter = letterElements[lastTypedLetterIndex]
+      x.value = getOffsetLeft(wordElement) + getOffsetLeft(lastTypedLetter) + getElementWidth(lastTypedLetter)
     }
   }
   if(isCtrlBackSpace(event)){
-    if(!wordIndex && !letterIndex) return
-    if(!letterIndex){
-      currentWordIndex.value--
+    if(!wordIndex.value && !letterIndex.value) return
+    if(!letterIndex.value){
+      wordIndex.value--
     }
-    const wordWithoutExtra = text.value[currentWordIndex.value].letters.filter(letter => letter.status != 'extra');
+    const word = getWordFromText(text, wordIndex)
+    const wordWithoutExtra = word.letters.filter(letter => letter.status != 'extra');
     const defaultText = wordWithoutExtra.map(({letter}) => ({letter, status: null}))
-    text.value[currentWordIndex.value].letters = defaultText
-    currentLetterIndex.value = 0
-    x.value = words.value[currentWordIndex.value]?.offsetLeft
-    if(text.value[currentWordIndex.value].error) text.value[currentWordIndex.value].error = false
+    word.letters = defaultText
+    letterIndex.value = 0
+    const wordElement = getWordElementFromText(words, wordIndex)
+    x.value = wordElement.offsetLeft
+    resetCurrentWordError(word)
   }
   if(isSpace(event.code)){
-    if(wordIndex == text.value.length - 1) return
-    if(!isAllLettersCorrect(text.value[wordIndex].letters)){
-      text.value[wordIndex].error = true
+    if(toValue(wordIndex) == text.value.length - 1) return
+    if(!isAllLettersCorrect(getWordFromText(text, wordIndex).letters)){
+      getWordFromText(text, wordIndex).error = true
     }
-    currentWordIndex.value++
-    currentLetterIndex.value = 0
-    x.value = words.value[currentWordIndex.value]?.offsetLeft
+    wordIndex.value++
+    letterIndex.value = 0
+    const wordElement = getWordElementFromText(words, wordIndex)
+    x.value = wordElement.offsetLeft
+    y.value = wordElement.offsetTop
   }
 }
-function getLetterWidth(letter: HTMLElement | Element){
-  return letter.getBoundingClientRect().width
+function getWordFromText(text: Ref<Word[]>, wordIndex: Ref<number>){
+  return text.value[wordIndex.value]
+}
+function getWordElementFromText(text: Ref<HTMLDivElement[]>, wordIndex: Ref<number>){
+  return text.value[wordIndex.value]
+}
+function resetCurrentWordError(word: Word){
+  if(word.error) word.error = false
+}
+function getLetter(letters: Letter[], index: Ref<number>){
+  return letters[index.value]
+}
+function getPrevLetter(letters: Letter[], index: Ref<number>){
+  return letters[index.value - 1]
+}
+function getElementWidth(element: HTMLElement | Element){
+  return element.getBoundingClientRect().width
+}
+function getOffsetLeft(element: HTMLElement | Element){
+  if(element instanceof HTMLElement) return element.offsetLeft
+  return (element as HTMLElement).offsetLeft
 }
 function isLetter(key: string){
   if(/^[a-z]$/i.test(key)) return true
@@ -160,7 +176,7 @@ function isSpace(key: string){
 function isAllLettersCorrect(letters: Letter[]){
   return letters.every(letter => letter.status == 'corrent')
 }
-function takeLastTypedLetter(letters: Letter[]){
+function takeLastTypedLetterIndex(letters: Letter[]){
   for(let i = letters.length - 1; i >= 0; i--){
     if(letters[i].status){
       return i
@@ -175,10 +191,10 @@ document.addEventListener('keydown', pressLetter)
 </script>
 <template>
   <div style="font-size: 24px;">
-    <div style="display: flex; gap: 1em; position: relative">
+    <div style="display: flex; gap: 10px; position: relative">
     <div 
       :style="{
-        top: getY() + 'px',
+        top: y + 'px',
         left: x + 'px'
       }"
       class="caret"></div>
@@ -187,7 +203,7 @@ document.addEventListener('keydown', pressLetter)
         class="word"
         :class="{
           error,
-          active: wordIndex == currentWordIndex
+          active: wordIndex == wordIndex
         }"
         v-for="({ letters, error }, wordIndex) in text">
         <div 
