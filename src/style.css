@@ -13,6 +13,9 @@
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
 }
+* {
+  font-family: 'Roboto Mono', monospace;
+}
 
 a {
   font-weight: 500;
