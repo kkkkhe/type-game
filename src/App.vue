@@ -7,64 +7,16 @@ type Status = 'corrent' | 'wrong' | 'extra' | null
 type Letter = { letter: string, status: Status}
 type Word = {
   letters: Letter[],
-  error: boolean
+  error: boolean,
+  isCorrect: boolean
 }
 const plainText = 'Jumps heighten gravity as the quicksilver fox dances with the whimsical zephyr. A symphony of colors paints the sky as the kaleidoscope of dreams unfolds. Whispers of enchantment fill the air, carrying secrets of forgotten realms. The moonlight weaves through the night, casting shadows on the mystical path ahead. Time stands still as the universe reveals its infinite wonders. Embrace the unknown, for within it lies the essence of discovery and adventure' 
 const words = ref<HTMLDivElement[]>([])
 const x = ref(0)
 const y = ref(0)
-const text = ref<Word[]>([
-    {
-      letters: [
-        {letter: 'H', status: null},
-        {letter: 'e', status: null},
-        {letter: 'l', status: null},
-        {letter: 'l', status: null},
-        {letter: 'o', status: null},
-      ],
-      error: false
-    },
-    {
-      letters: [
-        {letter: 'V', status: null},
-        {letter: 'i', status: null},
-        {letter: 't', status: null},
-        {letter: 'e', status: null},
-      ],
-      error: false
-    },
-    {
-      letters: [
-        {letter: 'T', status: null},
-        {letter: 'y', status: null},
-        {letter: 'p', status: null},
-        {letter: 'e', status: null},
-        {letter: 'S', status: null},
-        {letter: 'c', status: null},
-        {letter: 'r', status: null},
-        {letter: 'i', status: null},
-        {letter: 'p', status: null},
-        {letter: 't', status: null},
-      ],
-      error: false
-    },
-    {
-      letters: [
-        {letter: 'T', status: null},
-        {letter: 'y', status: null},
-        {letter: 'p', status: null},
-        {letter: 'e', status: null},
-        {letter: 'S', status: null},
-        {letter: 'c', status: null},
-        {letter: 'r', status: null},
-        {letter: 'i', status: null},
-        {letter: 'p', status: null},
-        {letter: 't', status: null},
-      ],
-      error: false
-    }
-]);
-function convertTextToLetterStructure(text: string){
+const text = ref<Word[]>([]);
+const correctWordsCounter = ref(0)
+function convertTextToLetterStructure(text: string): Word[]{
   return text.split(' ').map(word => {
     const letters = word.split('').map((letter) => ({
       letter,
@@ -72,6 +24,7 @@ function convertTextToLetterStructure(text: string){
     }))
     return {
       error: false,
+      isCorrect: false,
       letters
     }
   })
@@ -110,7 +63,7 @@ function pressLetter(event: KeyboardEvent){
       x.value -= letterElementWidth
       letterIndex.value--
     }
-    else if(toValue(wordIndex)){
+    else if(toValue(wordIndex) && !isAllLettersCorrect(getWordFromText(text, wordIndex.value-1).letters)){
       wordIndex.value--
       const word = getWordFromText(text, wordIndex)
       resetCurrentWordError(word)
@@ -125,7 +78,11 @@ function pressLetter(event: KeyboardEvent){
     }
   }
   if(isCtrlBackSpace(event)){
-    if(!wordIndex.value && !letterIndex.value) return
+    if((!wordIndex.value && !letterIndex.value)) return
+    const prevLetters = getWordFromText(text, wordIndex.value-1).letters
+    const isPrevWordCorrect = isAllLettersCorrect(prevLetters)
+    
+    if(isPrevWordCorrect) return
     if(!letterIndex.value){
       wordIndex.value--
     }
@@ -141,7 +98,13 @@ function pressLetter(event: KeyboardEvent){
   if(isSpace(event.code)){
     if(toValue(wordIndex) == text.value.length - 1) return
     if(!isAllLettersCorrect(getWordFromText(text, wordIndex).letters)){
-      getWordFromText(text, wordIndex).error = true
+      const word = getWordFromText(text, wordIndex)
+      word.error = true
+    }
+    else {
+      const word = getWordFromText(text, wordIndex)
+      word.isCorrect = true
+      correctWordsCounter.value++
     }
     wordIndex.value++
     letterIndex.value = 0
@@ -150,8 +113,9 @@ function pressLetter(event: KeyboardEvent){
     y.value =  getOffsetTop(wordElement)
   }
 }
-function getWordFromText(text: Ref<Word[]>, wordIndex: Ref<number>){
-  return text.value[wordIndex.value]
+function getWordFromText(text: Ref<Word[]>, wordIndex: Ref<number> | number){
+  const index = toValue(wordIndex)
+  return text.value[index]
 }
 function getWordElementFromText(text: Ref<HTMLDivElement[]>, wordIndex: Ref<number>){
   return text.value[wordIndex.value]
