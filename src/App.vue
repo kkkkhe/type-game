@@ -9,6 +9,7 @@ type Word = {
   letters: Letter[],
   error: boolean
 }
+const plainText = 'Jumps heighten gravity as the quicksilver fox dances with the whimsical zephyr. A symphony of colors paints the sky as the kaleidoscope of dreams unfolds. Whispers of enchantment fill the air, carrying secrets of forgotten realms. The moonlight weaves through the night, casting shadows on the mystical path ahead. Time stands still as the universe reveals its infinite wonders. Embrace the unknown, for within it lies the essence of discovery and adventure' 
 const words = ref<HTMLDivElement[]>([])
 const x = ref(0)
 const y = ref(0)
@@ -63,6 +64,19 @@ const text = ref<Word[]>([
       error: false
     }
 ]);
+function convertTextToLetterStructure(text: string){
+  return text.split(' ').map(word => {
+    const letters = word.split('').map((letter) => ({
+      letter,
+      status: null
+    }))
+    return {
+      error: false,
+      letters
+    }
+  })
+}
+text.value = convertTextToLetterStructure(plainText)
 function pressLetter(event: KeyboardEvent){
   const key = event.key
   const letters = getWordFromText(text, wordIndex).letters
@@ -92,8 +106,8 @@ function pressLetter(event: KeyboardEvent){
         prevLetter.status = null
       }
       const letterElement = getWordElementFromText(words, wordIndex).children[0]!
-      const wordElementWidth = getElementWidth(letterElement)
-      x.value -= wordElementWidth
+      const letterElementWidth = getElementWidth(letterElement)
+      x.value -= letterElementWidth
       letterIndex.value--
     }
     else if(toValue(wordIndex)){
@@ -107,6 +121,7 @@ function pressLetter(event: KeyboardEvent){
       const letterElements = Array.from(wordElement.children)
       const lastTypedLetter = letterElements[lastTypedLetterIndex]
       x.value = getOffsetLeft(wordElement) + getOffsetLeft(lastTypedLetter) + getElementWidth(lastTypedLetter)
+      y.value = getOffsetTop(wordElement)
     }
   }
   if(isCtrlBackSpace(event)){
@@ -131,8 +146,8 @@ function pressLetter(event: KeyboardEvent){
     wordIndex.value++
     letterIndex.value = 0
     const wordElement = getWordElementFromText(words, wordIndex)
-    x.value = wordElement.offsetLeft
-    y.value = wordElement.offsetTop
+    x.value = getOffsetLeft(wordElement)
+    y.value =  getOffsetTop(wordElement)
   }
 }
 function getWordFromText(text: Ref<Word[]>, wordIndex: Ref<number>){
@@ -156,6 +171,10 @@ function getElementWidth(element: HTMLElement | Element){
 function getOffsetLeft(element: HTMLElement | Element){
   if(element instanceof HTMLElement) return element.offsetLeft
   return (element as HTMLElement).offsetLeft
+}
+function getOffsetTop(element: HTMLElement | Element){
+  if(element instanceof HTMLElement) return element.offsetTop
+  return (element as HTMLElement).offsetTop
 }
 function isLetter(key: string){
   if(/^[a-z]$/i.test(key)) return true
@@ -190,15 +209,16 @@ function takeLastTypedLetterIndex(letters: Letter[]){
 document.addEventListener('keydown', pressLetter)
 </script>
 <template>
-  <div style="font-size: 24px;">
-    <div style="display: flex; gap: 10px; position: relative">
+  <div style="max-width: 1200px; height: 100%; font-size: 24px; ">
+    <div style="position: relative; display: flex; flex-wrap: wrap; gap: 10px;">
     <div 
       :style="{
         top: y + 'px',
         left: x + 'px'
       }"
       class="caret"></div>
-      <div 
+      <div
+        style=""
         ref="words"
         class="word"
         :class="{
@@ -239,7 +259,8 @@ document.addEventListener('keydown', pressLetter)
 .word {
   display: flex;
   user-select: none;
-  position: relative
+  position: relative;
+  word-wrap: break-word;
 }
 .letter {
   height: 1.2em;
